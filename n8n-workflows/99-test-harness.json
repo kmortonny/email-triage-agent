@@ -1,0 +1,487 @@
+﻿{
+  "name": "{{COMPANY_NAME}} ”” Triage Test Harness v4",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "f5c2c7ad-974a-4030-8d68-af76f1c52a58",
+      "name": "Run Test Batch",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-720, 960]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-1",
+              "name": "batch_offset",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "cfg-2",
+              "name": "batch_size",
+              "value": 50,
+              "type": "number"
+            },
+            {
+              "id": "cfg-3",
+              "name": "sent_folder_id",
+              "value": "AAMkADMzYjNiN2VmLTI5NGMtNDljYi1iYTExLWM2NmY1N2I1ZDZlNAAuAAAAAAAM8pIavYvEQLPMtAGbYBG6AQCdaQGdJsliQ5ojmTK1RkssAAAAAAEKAAA=",
+              "type": "string"
+            },
+            {
+              "id": "cfg-4",
+              "name": "inbox_folder_id",
+              "value": "AAMkADMzYjNiN2VmLTI5NGMtNDljYi1iYTExLWM2NmY1N2I1ZDZlNAAuAAAAAAAM8pIavYvEQLPMtAGbYBG6AQCdaQGdJsliQ5ojmTK1RkssAAAAAAENAAA=",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3c490f99-8adc-4e78-90dd-c858c18cd2df",
+      "name": "Set Batch Config1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-512, 960],
+      "notes": "Change batch_offset to 50 for batch 2, 100 for batch 3, etc."
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "limit": "={{ $('Set Batch Config1').item.json.batch_size }}",
+        "output": "fields",
+        "fields": [
+          "subject",
+          "from",
+          "toRecipients",
+          "ccRecipients",
+          "receivedDateTime",
+          "bodyPreview",
+          "body",
+          "hasAttachments",
+          "importance",
+          "conversationId",
+          "isRead"
+        ],
+        "filtersUI": {
+          "values": {
+            "filters": {
+              "foldersToInclude": [
+                "={{ $('Set Batch Config1').item.json.inbox_folder_id }}"
+              ],
+              "readStatus": "both"
+            }
+          }
+        },
+        "options": {}
+      },
+      "id": "fdfa0ce3-4a6d-4958-b75e-d64ad22e1a2f",
+      "name": "Fetch Inbox Emails",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [-288, 960],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "{{N8N_CRED_OUTLOOK_OAUTH_ID}}",
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 200,
+        "output": "fields",
+        "fields": [
+          "subject",
+          "from",
+          "body",
+          "bodyPreview",
+          "sentDateTime",
+          "toRecipients",
+          "conversationId"
+        ],
+        "filtersUI": {
+          "values": {
+            "filters": {
+              "foldersToInclude": [
+                "={{ $('Set Batch Config1').item.json.sent_folder_id }}"
+              ],
+              "readStatus": "both"
+            }
+          }
+        },
+        "options": {}
+      },
+      "id": "017a1a4a-4b25-4a76-9b12-5f663442fe42",
+      "name": "Fetch Sent Reply",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [-288, 1120],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "{{N8N_CRED_OUTLOOK_OAUTH_ID}}",
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "\nconst item = $input.item.json;\nconst stripHtml = (html) => {\n  if (!html) return '';\n  return html\n    .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, ' ')\n    .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, ' ')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')\n    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')\n    .replace(/&quot;/g, '\"').replace(/&#39;/g, \"'\")\n    .replace(/\\s+/g, ' ').trim();\n};\nconst bodyClean = stripHtml(item.body?.content || item.bodyPreview || '');\nreturn {\n  json: {\n    email_id:        item.id || '',\n    received_date:   item.receivedDateTime || '',\n    from_address:    item.from?.emailAddress?.address || '',\n    from_name:       item.from?.emailAddress?.name || '',\n    to_address:      item.toRecipients?.[0]?.emailAddress?.address || '',\n    subject:         item.subject || '',\n    body_preview:    bodyClean.substring(0, 500),\n    body_full:       bodyClean.substring(0, 3000),\n    has_attachments: item.hasAttachments ? 'yes' : 'no',\n    importance:      item.importance || 'normal',\n    conversation_id: item.conversationId || ''\n  }\n};\n"
+      },
+      "id": "59b6f3cf-959d-4497-a919-79658d520a03",
+      "name": "Clean Email Body1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [0, 960]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "\n// FIX: Reference Fetch Sent Reply node directly so we have the full list,\n// not just the current pipeline item (which is what $input.all() gives in per-item mode)\nconst sentItems = $('Fetch Sent Reply').all();\nconst incomingEmail = $input.item.json;\nconst targetConvId = incomingEmail.conversation_id;\n\nconst stripHtml = (html) => {\n  if (!html) return '';\n  return html\n    .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, ' ')\n    .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, ' ')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')\n    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')\n    .replace(/&quot;/g, '\"').replace(/&#39;/g, \"'\")\n    .replace(/\\s+/g, ' ').trim();\n};\n\nconst stripQuotedAndSig = (text) => {\n  const cutoffs = [\n    /\\nFrom:.*Sent:/s,\n    /\\n-----Original Message-----/,\n    /\\nOn .* wrote:/,\n    /\\n_{3,}/\n  ];\n  let result = text;\n  for (const pattern of cutoffs) {\n    const match = result.search(pattern);\n    if (match > 10) { result = result.substring(0, match).trim(); break; }\n  }\n  return result\n    .replace(/Sent from my T-Mobile[\\s\\S]*$/i, '')\n    .replace(/Get Outlook for[\\s\\S]*$/i, '')\n    .replace(/He is no fool[\\s\\S]*$/i, '')\n    .replace(/Try our online[\\s\\S]*$/i, '')\n    .trim();\n};\n\n// Match sent reply by conversationId\nconst match = sentItems.find(item =>\n  item.json.conversationId === targetConvId\n);\n\nconst keithReplyText = match\n  ? stripQuotedAndSig(stripHtml(match.json.body?.content || match.json.bodyPreview || '')).substring(0, 2000)\n  : '';\n\nreturn {\n  json: {\n    ...incomingEmail,\n    keith_reply_found: match ? 'YES' : 'NO',\n    keith_reply_text: keithReplyText,\n    keith_reply_date: match ? (match.json.sentDateTime || '') : ''\n  }\n};\n"
+      },
+      "id": "809d4178-4f9d-4edc-8f50-4d3f7a861a84",
+      "name": "Extract {{OWNER_FIRST_NAME}} Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 960]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "d8ebfd99-5161-4686-85dd-e2a449030fa1",
+      "name": "One at a Time1",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [480, 960]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this email received by {{OWNER_NAME}} at {{COMPANY_NAME}}.\n\nINCOMING EMAIL (what someone sent {{OWNER_FIRST_NAME}}):\nFrom: {{ $json.from_address }} ({{ $json.from_name }})\nDate: {{ $json.received_date }}\nSubject: {{ $json.subject }}\nHas Attachments: {{ $json.has_attachments }}\n\nBody:\n{{ $json.body_full }}\n\n---\nKEITH'S ACTUAL REPLY{{ $json.keith_reply_found === 'YES' ? ' (sent ' + $json.keith_reply_date + ')' : '' }}:\n{{ $json.keith_reply_found === 'YES' ? $json.keith_reply_text : 'No reply found ”” {{OWNER_FIRST_NAME}} may not have responded yet.' }}\n\n---\nUsing {{OWNER_FIRST_NAME}}'s actual reply above as your primary reference for tone and length, write the AI draft reply. If no reply exists, draft what {{OWNER_FIRST_NAME}} should write.\n\nReturn a single valid JSON object only ”” no markdown, no preamble.",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are an AI email assistant for {{OWNER_NAME}}, {{OWNER_TITLE}} of {{COMPANY_NAME}}. Triage-and-draft system only ”” never send, never delete.\n\nVOICE ”” Draft all replies in {{OWNER_FIRST_NAME}}'s exact voice:\n- Direct, brief, plain. 1-3 sentences default.\n- Greetings: Skip entirely OR first name only with comma (Steve,). Never: Hi Steve, Hello, Dear.\n- Sign-offs: Use Thanks, or nothing. Never append phone number, title, or full name. Never: Best, Best regards, Sincerely.\n- Plain text only. No bullets, no lists, no bold.\n- Ask questions directly. One question per message.\n- Abbreviations: asap, btw are normal.\n- Never open with I hope this email finds you well.\n- Never repeat back what the other person said.\n\nRECIPIENTS:\n- Internal ({{TEAM_MEMBER_1}}, {{TEAM_MEMBER_2}}, {{TEAM_MEMBER_3}}, {{TEAM_MEMBER_4}}, {{TEAM_MEMBER_5}}, Roy Wei, Robert Fairce): Very short, directive, no formality.\n- Vendors ({{KEY_VENDOR_1}}, {{VENDOR_CONTACT_1}}, suppliers): Direct, not aggressive.\n- Customers/prospects: Brief, do not over-promise.\n- Cold outreach / unknown Gmail: Classify only. No draft.\n\nKEITH PHRASES ”” use ONLY when contextually correct:\n- 'Can you see what you can do for us here?' ”” ONLY when pushing on vendor pricing\n- 'Anything new on this?' ”” ONLY for follow-ups waiting on a reply\n- 'All confidential of course.' ”” ONLY when sharing sensitive info\n- 'Good customer.' ”” ONLY when establishing customer importance to a vendor\n- 'That all adds up.' ”” ONLY when acknowledging an explanation that makes sense\n\nCATEGORIES (pick one): ACTION_REQUIRED_KEITH, ACTION_REQUIRED_DRAFT, QUOTE_FOLLOW_UP, INFO_OWED_TO_KEITH, INFO_KEITH_OWES, FYI_NO_ACTION, COLD_OUTREACH, LOW_VALUE_ROUTINE, AMBIGUOUS, SPAM, PERSONAL.\n\nRULES:\n- LOW_VALUE_ROUTINE: calendar accepts/declines, empty-body emails, auto-notifications. Do NOT use AMBIGUOUS for these.\n- PERSONAL: family, personal finances, personal purchases. Set draft_reply to empty string.\n- AMBIGUOUS: only when real content exists but intent is genuinely unclear.\n- SENSITIVITY: set sensitivity_flag true + flag_reason for unestablished pricing, contracts, legal, financial, personnel.\n\nTRAINING FIELDS: confidence_score (0.0-1.0), relationship_type (INTERNAL/VENDOR/CUSTOMER/PROSPECT/PERSONAL/UNKNOWN), topic_tags (comma-separated), reply_needed (YES/NO/MAYBE), draft_notes (brief explanation of drafting decisions).\n\nReturn only a single valid JSON object. No markdown, no preamble."
+            }
+          ]
+        },
+        "batching": {
+          "batchSize": 1,
+          "delayBetweenBatches": 500
+        }
+      },
+      "id": "fadaa7f6-3389-4391-bb1b-f85c37fd3a64",
+      "name": "Triage AI1",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [720, 1072]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-6",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {
+          "maxTokensToSample": 2048,
+          "temperature": 0.1
+        }
+      },
+      "id": "1fb169b9-f5f6-4cdc-91f8-2d5f0668b72e",
+      "name": "Claude Sonnet",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [720, 1280],
+      "credentials": {
+        "anthropicApi": {
+          "id": "{{N8N_CRED_ANTHROPIC_ID}}",
+          "name": "Anthropic account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\"category\":\"ACTION_REQUIRED_DRAFT\",\"priority\":\"HIGH\",\"is_real_person\":true,\"spam_confidence\":\"LOW\",\"requires_keith_decision\":false,\"sensitivity_flag\":false,\"flag_reason\":\"\",\"summary\":\"Vendor following up on panel pricing for the Teledyne project.\",\"recommended_action\":\"Reply asking for updated lead time on 500 units.\",\"draft_reply\":\"Steve,\\n\\nStill working through the PO. What is the lead time if we place 500 now?\\n\\nThanks,\",\"routing_label\":\"VENDOR_ACTIVE\",\"follow_up_step\":\"\",\"confidence_score\":0.94,\"relationship_type\":\"VENDOR\",\"topic_tags\":\"pricing,lead_time,quote\",\"reply_needed\":\"YES\",\"draft_notes\":\"Established vendor. Single direct question.\"}"
+      },
+      "id": "90f0fabf-2d80-4de0-beae-cae521f34684",
+      "name": "Structured Output",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [864, 1280]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "\nconst ai = $json.output || {};\nconst email = $('Extract {{OWNER_FIRST_NAME}} Reply').item.json;\nconst safe = (v) => {\n  if (v === null || v === undefined) return '';\n  if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';\n  if (typeof v === 'number') return String(v);\n  return String(v).replace(/\\r\\n/g, '\\n').substring(0, 5000);\n};\nreturn {\n  json: {\n    email_id:               safe(email.email_id),\n    received_date:          safe(email.received_date),\n    from_address:           safe(email.from_address),\n    from_name:              safe(email.from_name),\n    to_address:             safe(email.to_address),\n    subject:                safe(email.subject),\n    body_preview:           safe(email.body_preview),\n    has_attachments:        safe(email.has_attachments),\n    keith_reply_found:      safe(email.keith_reply_found),\n    keith_actual_reply:     safe(email.keith_reply_text),\n    keith_reply_date:       safe(email.keith_reply_date),\n    category:               safe(ai.category),\n    priority:               safe(ai.priority),\n    routing_label:          safe(ai.routing_label),\n    is_real_person:         safe(ai.is_real_person),\n    spam_confidence:        safe(ai.spam_confidence),\n    requires_keith:         safe(ai.requires_keith_decision),\n    sensitivity_flag:       safe(ai.sensitivity_flag),\n    flag_reason:            safe(ai.flag_reason),\n    summary:                safe(ai.summary),\n    recommended_action:     safe(ai.recommended_action),\n    ai_draft_reply:         safe(ai.draft_reply),\n    confidence_score:       safe(ai.confidence_score),\n    relationship_type:      safe(ai.relationship_type),\n    topic_tags:             safe(ai.topic_tags),\n    reply_needed:           safe(ai.reply_needed),\n    draft_notes:            safe(ai.draft_notes),\n    keith_category_correct: '',\n    keith_draft_rating:     '',\n    keith_notes:            '',\n    reviewed:               'NO'\n  }\n};\n"
+      },
+      "id": "842a2381-c94a-4956-b0ef-3ae067732e0d",
+      "name": "Build Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 1072]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "11Yo1SNwRB7BnLHA77FeW2kBW06_1DdsHf6wMkOcxSVI",
+          "cachedResultName": "{{COMPANY_NAME}} ”” Triage Test Results"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Sheet1",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            { "id": "email_id", "displayName": "email_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "received_date", "displayName": "received_date", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "from_address", "displayName": "from_address", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "from_name", "displayName": "from_name", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "to_address", "displayName": "to_address", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "subject", "displayName": "subject", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "body_preview", "displayName": "body_preview", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "has_attachments", "displayName": "has_attachments", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "keith_reply_found", "displayName": "keith_reply_found", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "keith_actual_reply", "displayName": "keith_actual_reply", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "keith_reply_date", "displayName": "keith_reply_date", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "category", "displayName": "category", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "priority", "displayName": "priority", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "routing_label", "displayName": "routing_label", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "is_real_person", "displayName": "is_real_person", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "spam_confidence", "displayName": "spam_confidence", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "requires_keith", "displayName": "requires_keith", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "sensitivity_flag", "displayName": "sensitivity_flag", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "flag_reason", "displayName": "flag_reason", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "summary", "displayName": "summary", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "recommended_action", "displayName": "recommended_action", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "ai_draft_reply", "displayName": "ai_draft_reply", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "confidence_score", "displayName": "confidence_score", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "relationship_type", "displayName": "relationship_type", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "topic_tags", "displayName": "topic_tags", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "reply_needed", "displayName": "reply_needed", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "draft_notes", "displayName": "draft_notes", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "keith_category_correct", "displayName": "keith_category_correct", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "keith_draft_rating", "displayName": "keith_draft_rating", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "keith_notes", "displayName": "keith_notes", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "reviewed", "displayName": "reviewed", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "handlingExtraData": "insertInNewColumn"
+        }
+      },
+      "id": "ff5fb7d9-0709-4eb7-8b15-d7eb118eb41b",
+      "name": "Write to Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1152, 1072],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5Pdg43ddYaQBDvfH",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "c53719c6-c1b0-44d5-bacf-c16b9f467e1a",
+      "name": "Collect All Results1",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [480, 768]
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {}
+      },
+      "id": "9e5ab9fb-efe4-4433-970b-930ba7a50135",
+      "name": "Generate Excel File1",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [704, 768]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Run Test Batch": {
+      "main": [
+        [
+          {
+            "node": "Set Batch Config1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Batch Config1": {
+      "main": [
+        [
+          {
+            "node": "Fetch Inbox Emails",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Sent Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Inbox Emails": {
+      "main": [
+        [
+          {
+            "node": "Clean Email Body1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Email Body1": {
+      "main": [
+        [
+          {
+            "node": "Extract {{OWNER_FIRST_NAME}} Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract {{OWNER_FIRST_NAME}} Reply": {
+      "main": [
+        [
+          {
+            "node": "One at a Time1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One at a Time1": {
+      "main": [
+        [
+          {
+            "node": "Collect All Results1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Triage AI1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Triage AI1": {
+      "main": [
+        [
+          {
+            "node": "Build Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Sonnet": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Triage AI1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Triage AI1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Row": {
+      "main": [
+        [
+          {
+            "node": "Write to Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write to Google Sheet": {
+      "main": [
+        [
+          {
+            "node": "One at a Time1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect All Results1": {
+      "main": [
+        [
+          {
+            "node": "Generate Excel File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "cbc22de3-c944-41fc-af3c-5931ce60d7f2",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b6b92fa383763da8633fcd68b001492e26625e7b91c3fdf0b35e2b39d032127b"
+  },
+  "tags": []
+}
+

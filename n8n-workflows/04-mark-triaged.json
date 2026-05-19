@@ -1,0 +1,35 @@
+﻿{
+  "name": "{{COMPANY_NAME}} ”” Mark Email Triaged",
+  "nodes": [
+    {
+      "id": "webhook-tr-1",
+      "name": "Mark Triaged Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mark-triaged",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "id": "code-tr-1",
+      "name": "Apply TR Category",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const emailId = $json.body.emailId;\nif (!emailId) return [{ json: { error: 'No emailId provided' } }];\n\n// Apply 'TR' category to email via Microsoft Graph API\n// The Outlook credential gives us an access token\nconst response = await this.helpers.httpRequest({\n  method: 'PATCH',\n  url: `https://graph.microsoft.com/v1.0/me/messages/${emailId}`,\n  headers: {\n    'Content-Type': 'application/json'\n  },\n  body: JSON.stringify({\n    categories: ['TR']\n  }),\n  authentication: 'predefinedCredentialType',\n  nodeCredentialType: 'microsoftOutlookOAuth2Api'\n});\n\nreturn [{ json: { success: true, emailId } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Mark Triaged Webhook": {
+      "main": [[{ "node": "Apply TR Category", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}
+

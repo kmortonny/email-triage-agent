@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Email Triage Agent</title>
+  <style>
+    :root {
+      --bg: #0e1116;
+      --panel: #161b22;
+      --panel-2: #1c232c;
+      --border: #2a313c;
+      --text: #e6edf3;
+      --text-dim: #8b949e;
+      --accent: #2f81f7;
+      --accent-hover: #1f6feb;
+      --good: #3fb950;
+      --warn: #d29922;
+      --bad: #f85149;
+      --info: #58a6ff;
+      --radius: 10px;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px; line-height: 1.5;
+      background: var(--bg); color: var(--text);
+    }
+    button { font: inherit; cursor: pointer; }
+
+    .app { display: grid; grid-template-rows: 56px 1fr; height: 100vh; }
+    .topbar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 16px; border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+    .topbar h1 {
+      font-size: 16px; font-weight: 600; margin: 0;
+    }
+    .topbar .spacer { flex: 1; }
+    .topbar button {
+      background: transparent; color: var(--text); border: 1px solid var(--border);
+      padding: 6px 12px; border-radius: 6px; font-size: 13px;
+    }
+    .topbar button:hover { background: var(--panel-2); }
+    .topbar .badge {
+      font-size: 11px; padding: 2px 8px; border-radius: 999px;
+      background: var(--panel-2); color: var(--text-dim);
+    }
+
+    .main { display: grid; grid-template-columns: 360px 1fr; min-height: 0; }
+    @media (max-width: 720px) {
+      .main { grid-template-columns: 1fr; }
+      .main.detail-open .list { display: none; }
+      .main:not(.detail-open) .detail { display: none; }
+    }
+
+    .list {
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      background: var(--panel);
+    }
+    .list-header {
+      position: sticky; top: 0; z-index: 1;
+      padding: 12px 16px; background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex; gap: 8px; align-items: center;
+    }
+    .filter-chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 16px 4px; }
+    .chip {
+      font-size: 12px; padding: 4px 10px; border-radius: 999px;
+      background: var(--panel-2); color: var(--text-dim);
+      border: 1px solid transparent; cursor: pointer;
+    }
+    .chip:hover { color: var(--text); }
+    .chip.active { background: var(--accent); color: white; }
+
+    .email-row {
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      cursor: pointer; min-height: 44px;
+    }
+    .email-row:hover { background: var(--panel-2); }
+    .email-row.selected { background: var(--panel-2); border-left: 3px solid var(--accent); padding-left: 13px; }
+    .email-row .from { font-weight: 600; font-size: 13px; }
+    .email-row .subject { color: var(--text); margin: 2px 0; font-size: 13px; }
+    .email-row .meta { font-size: 11px; color: var(--text-dim); display: flex; gap: 8px; align-items: center; }
+    .email-row.resolved .from, .email-row.resolved .subject { color: var(--text-dim); }
+    .cat {
+      font-size: 10px; padding: 2px 6px; border-radius: 4px;
+      background: var(--panel); border: 1px solid var(--border);
+    }
+    .cat.action { background: rgba(47, 129, 247, 0.15); color: var(--info); border-color: var(--info); }
+    .cat.opp    { background: rgba(63, 185, 80, 0.15);  color: var(--good); border-color: var(--good); }
+    .cat.vendor { background: rgba(210, 153, 34, 0.15); color: var(--warn); border-color: var(--warn); }
+    .cat.spam   { background: rgba(248, 81, 73, 0.15);  color: var(--bad);  border-color: var(--bad);  }
+
+    .detail { overflow-y: auto; padding: 20px 24px; }
+    .detail-empty { color: var(--text-dim); padding: 80px 20px; text-align: center; }
+    .detail h2 { font-size: 18px; margin: 0 0 4px; }
+    .detail .from-line { color: var(--text-dim); font-size: 13px; margin-bottom: 16px; }
+    .detail .classification {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .detail .summary {
+      background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px 16px; margin-bottom: 16px; font-size: 13px;
+    }
+    .detail .summary .label {
+      text-transform: uppercase; font-size: 10px; color: var(--text-dim); margin-bottom: 4px;
+    }
+    .detail .body {
+      background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px; white-space: pre-wrap; word-break: break-word;
+      font-size: 13px; line-height: 1.6; margin-bottom: 16px;
+    }
+    .draft-section {
+      background: var(--panel-2); border: 1px solid var(--accent); border-radius: var(--radius);
+      padding: 16px; margin-bottom: 16px;
+    }
+    .draft-section h3 { font-size: 13px; margin: 0 0 8px; color: var(--accent); }
+    .draft-section textarea {
+      width: 100%; min-height: 140px; resize: vertical;
+      background: var(--bg); color: var(--text); border: 1px solid var(--border);
+      border-radius: 6px; padding: 12px; font: inherit; font-size: 13px;
+    }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .actions button {
+      padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--panel); color: var(--text); font-size: 13px;
+      min-height: 36px; min-width: 90px;
+    }
+    .actions button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+    .actions button.primary:hover { background: var(--accent-hover); }
+    .actions button:hover { background: var(--panel-2); }
+    .actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .modal-bg {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100;
+      display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-bg.open { display: flex; }
+    .modal {
+      background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+      width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto;
+      padding: 24px;
+    }
+    .modal h2 { margin: 0 0 16px; font-size: 18px; }
+    .modal .row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .modal .row:last-child { border-bottom: none; }
+    .modal .row .label { color: var(--text-dim); font-size: 13px; }
+    .modal .row .value { font-size: 13px; }
+    .modal .row .value.good { color: var(--good); }
+    .modal .row .value.bad { color: var(--bad); }
+    .modal button.primary {
+      background: var(--accent); color: white; border: 1px solid var(--accent);
+      padding: 10px 16px; border-radius: 6px; font-size: 14px; width: 100%;
+    }
+    .modal button.primary:hover { background: var(--accent-hover); }
+    .modal .close-x {
+      position: absolute; top: 16px; right: 20px; background: none; border: none;
+      color: var(--text-dim); font-size: 20px;
+    }
+
+    .toast {
+      position: fixed; bottom: 20px; right: 20px; z-index: 200;
+      background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+      padding: 10px 16px; font-size: 13px; max-width: 320px;
+      opacity: 0; transform: translateY(10px); transition: all .2s;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.good { border-color: var(--good); }
+    .toast.bad  { border-color: var(--bad);  }
+
+    .loading { text-align: center; padding: 40px; color: var(--text-dim); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1>Email Triage Agent</h1>
+      <span class="badge" id="version-badge">loading</span>
+      <div class="spacer"></div>
+      <button onclick="refresh()">Refresh</button>
+      <button onclick="openSettings()">Settings</button>
+    </header>
+
+    <div class="main" id="main">
+      <div class="list">
+        <div class="list-header">
+          <strong>Inbox</strong>
+          <span class="badge" id="count-badge">0</span>
+        </div>
+        <div class="filter-chips" id="filter-chips">
+          <div class="chip active" data-filter="open">Open</div>
+          <div class="chip" data-filter="action">Action</div>
+          <div class="chip" data-filter="opportunity">Opportunity</div>
+          <div class="chip" data-filter="vendor">Vendor</div>
+          <div class="chip" data-filter="all">All</div>
+        </div>
+        <div id="email-list" class="loading">Loading...</div>
+      </div>
+
+      <div class="detail" id="detail">
+        <div class="detail-empty">Select an email to view details.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="settings-modal" onclick="if(event.target===this) closeSettings()">
+    <div class="modal" style="position:relative">
+      <button class="close-x" onclick="closeSettings()">×</button>
+      <h2>Settings</h2>
+      <div id="health-rows" class="loading">Running health check...</div>
+      <div style="margin-top: 20px">
+        <h3 style="font-size: 14px">Voice Profile</h3>
+        <div id="persona-info" class="loading">Loading persona...</div>
+        <button class="primary" style="margin-top: 12px" onclick="learnVoice()">
+          Learn My Voice (from Sent folder)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+let emails = [];
+let selectedId = null;
+let currentFilter = 'open';
+
+function api(fn, ...args) {
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(reject)
+      [fn](...args);
+  });
+}
+
+function toast(msg, kind) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (kind || '');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+async function init() {
+  try {
+    const d = await api('getInitData');
+    document.getElementById('version-badge').textContent = d.codeVersion + ' · ' + d.emailProvider;
+  } catch (e) { /* ignore */ }
+  refresh();
+}
+
+async function refresh() {
+  try {
+    const rows = await api('listInboxForUi', currentFilter);
+    emails = rows || [];
+    renderList();
+  } catch (e) {
+    document.getElementById('email-list').innerHTML =
+      '<div style="padding:20px;color:var(--bad)">Error: ' + e.message + '</div>';
+  }
+}
+
+function renderList() {
+  const list = document.getElementById('email-list');
+  document.getElementById('count-badge').textContent = emails.length;
+  if (!emails.length) {
+    list.innerHTML = '<div style="padding:40px 20px;color:var(--text-dim);text-align:center">No emails match this filter.</div>';
+    return;
+  }
+  list.innerHTML = emails.map(e => {
+    const catClass = catKind(e.category);
+    const time = e.received_at ? new Date(e.received_at).toLocaleDateString() : '';
+    return `
+      <div class="email-row ${e.resolved?'resolved':''} ${e.id===selectedId?'selected':''}" data-id="${escapeAttr(e.id)}" onclick="selectEmail('${escapeAttr(e.id)}')">
+        <div class="from">${escape(e.from_name||e.from_email||'(unknown)')}</div>
+        <div class="subject">${escape(e.subject||'(no subject)')}</div>
+        <div class="meta">
+          <span class="cat ${catClass}">${escape(e.category||'')}</span>
+          <span>${time}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function catKind(cat) {
+  if (!cat) return '';
+  if (cat.indexOf('ACTION') === 0) return 'action';
+  if (cat === 'NEW_OPPORTUNITY' || cat === 'QUOTE_FOLLOW_UP') return 'opp';
+  if (cat.indexOf('VENDOR') === 0) return 'vendor';
+  if (cat === 'SPAM' || cat === 'COLD_OUTREACH') return 'spam';
+  return '';
+}
+
+async function selectEmail(id) {
+  selectedId = id;
+  document.getElementById('main').classList.add('detail-open');
+  renderList();
+  const e = emails.find(x => x.id === id);
+  if (!e) return;
+  renderDetail(e);
+}
+
+function renderDetail(e) {
+  const summary = e.summary
+    ? `<div class="summary"><div class="label">Summary</div>${escape(e.summary)}</div>`
+    : '';
+  const html = `
+    <h2>${escape(e.subject||'(no subject)')}</h2>
+    <div class="from-line">${escape(e.from_name||'')} &lt;${escape(e.from_email||'')}&gt; · ${e.received_at ? new Date(e.received_at).toLocaleString() : ''}</div>
+    <div class="classification">
+      <span class="cat ${catKind(e.category)}">${escape(e.category||'')}</span>
+      ${e.priority ? `<span class="cat">Priority: ${escape(e.priority)}</span>` : ''}
+      ${e.related_deal_hint ? `<span class="cat">Deal: ${escape(e.related_deal_hint)}</span>` : ''}
+    </div>
+    ${summary}
+    <div class="body">${escape(e.email_body||'')}</div>
+    <div class="draft-section">
+      <h3>Draft reply</h3>
+      <textarea id="draft-text" placeholder="No draft yet. Click Generate to create one in your voice.">${escape(e.draft_reply||'')}</textarea>
+      <div class="actions">
+        <button onclick="generateDraft('${escapeAttr(e.id)}')">Generate Draft</button>
+        <button class="primary" onclick="sendDraft('${escapeAttr(e.id)}')">Send</button>
+        <button onclick="markResolved('${escapeAttr(e.id)}')">Mark Resolved</button>
+        <button onclick="markDismissed('${escapeAttr(e.id)}')">Dismiss</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('detail').innerHTML = html;
+}
+
+async function generateDraft(id) {
+  toast('Generating draft...');
+  try {
+    const r = await api('generateDraftForEmail', id);
+    if (r.ok) {
+      document.getElementById('draft-text').value = r.draft;
+      toast('Draft generated', 'good');
+    } else {
+      toast('Error: ' + r.error, 'bad');
+    }
+  } catch (e) { toast('Error: ' + e.message, 'bad'); }
+}
+
+async function sendDraft(id) {
+  const e = emails.find(x => x.id === id);
+  if (!e) return;
+  const body = document.getElementById('draft-text').value;
+  if (!body.trim()) { toast('Draft is empty', 'bad'); return; }
+  if (!confirm('Send reply to ' + e.from_email + '?')) return;
+  toast('Sending...');
+  try {
+    const r = await api('sendEmail', e.from_email, 'Re: ' + (e.subject||''), body, {});
+    if (r.ok) {
+      toast('Sent', 'good');
+      await api('markTriageEmailResolved', id, true);
+      refresh();
+    } else {
+      toast('Send failed: ' + r.error, 'bad');
+    }
+  } catch (err) { toast('Error: ' + err.message, 'bad'); }
+}
+
+async function markResolved(id) {
+  await api('markTriageEmailResolved', id, true);
+  toast('Marked resolved', 'good');
+  refresh();
+}
+
+async function markDismissed(id) {
+  await api('markTriageEmailDismissed', id);
+  toast('Dismissed', 'good');
+  refresh();
+}
+
+async function openSettings() {
+  document.getElementById('settings-modal').classList.add('open');
+  document.getElementById('health-rows').innerHTML = '<div class="loading">Running health check...</div>';
+  document.getElementById('persona-info').innerHTML = '<div class="loading">Loading persona...</div>';
+  try {
+    const h = await api('healthCheck');
+    document.getElementById('health-rows').innerHTML = Object.keys(h.checks).map(k => {
+      const v = h.checks[k];
+      const cls = (String(v).indexOf('error')===0 || String(v).indexOf('missing')===0) ? 'bad' : 'good';
+      return `<div class="row"><span class="label">${k}</span><span class="value ${cls}">${escape(v)}</span></div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('health-rows').innerHTML = '<div style="color:var(--bad)">Health check failed: '+e.message+'</div>';
+  }
+  try {
+    const p = await api('loadPersona');
+    document.getElementById('persona-info').innerHTML = `
+      <div class="row"><span class="label">Source</span><span class="value">${p.learned_from_sent_folder ? 'learned from sent folder' : 'generic default'}</span></div>
+      ${p.learned_at ? `<div class="row"><span class="label">Learned at</span><span class="value">${new Date(p.learned_at).toLocaleString()}</span></div>` : ''}
+      ${p.sample_count ? `<div class="row"><span class="label">Sample count</span><span class="value">${p.sample_count}</span></div>` : ''}
+      <div class="row"><span class="label">Voice rules</span><span class="value">${(p.voice_rules||[]).length} rules</span></div>
+    `;
+  } catch(e) {
+    document.getElementById('persona-info').innerHTML = '<div style="color:var(--bad)">Persona load failed: '+e.message+'</div>';
+  }
+}
+
+function closeSettings() {
+  document.getElementById('settings-modal').classList.remove('open');
+}
+
+async function learnVoice() {
+  toast('Learning your voice from Sent folder. This takes ~30s...');
+  try {
+    const r = await api('extractVoiceFromSent');
+    if (r.ok) {
+      toast('Voice learned from ' + r.sampleCount + ' samples', 'good');
+      openSettings();
+    } else {
+      toast('Voice learning failed: ' + r.error, 'bad');
+    }
+  } catch(e) {
+    toast('Error: ' + e.message, 'bad');
+  }
+}
+
+function escape(s) { return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeAttr(s) { return String(s||'').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+document.querySelectorAll('.chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    currentFilter = c.dataset.filter;
+    refresh();
+  });
+});
+
+init();
+</script>
+</body>
+</html>

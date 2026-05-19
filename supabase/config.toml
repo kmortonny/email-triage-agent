@@ -1,0 +1,18 @@
+# Supabase local config — used by `supabase db push` and friends.
+# project_id is set per-user during install (installer writes config.local.toml).
+
+project_id = "email-triage-agent"
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[api]
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[studio]
+port = 54323

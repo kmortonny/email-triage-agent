@@ -1,0 +1,36 @@
+{
+  "owner": {
+    "name": "Your Name",
+    "title": "Your Title (e.g. Founder, Account Manager, Director of Sales)",
+    "email": "you@yourcompany.com"
+  },
+  "company": {
+    "name": "Your Company",
+    "domain": "yourcompany.com",
+    "industry": "What your company does, one line. Used as context in Claude prompts.",
+    "internal_domains": ["yourcompany.com"]
+  },
+  "modules": {
+    "email_core": true,
+    "crm": false,
+    "audio_notes": true,
+    "meeting_notes": true
+  },
+  "mailbox": {
+    "provider": "gmail",
+    "_comment": "provider must be 'gmail' or 'outlook'. Outlook uses Microsoft 365 / Graph API."
+  },
+  "voice": {
+    "use_generic_default": true,
+    "_comment": "Set false after running the Learn-My-Voice button to use your extracted persona."
+  },
+  "credentials": {
+    "_comment": "Set in the installer or via the dashboard Settings tab. Stored encrypted in Apps Script Properties + Supabase secrets, never in this file.",
+    "anthropic_api_key": "set-via-installer",
+    "supabase_url": "set-via-installer",
+    "supabase_anon_key": "set-via-installer",
+    "supabase_service_role_key": "set-via-installer",
+    "n8n_url": "set-via-installer",
+    "n8n_api_key": "set-via-installer"
+  }
+}

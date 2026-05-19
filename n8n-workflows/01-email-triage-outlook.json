@@ -1,0 +1,1245 @@
+﻿{
+  "name": "{{COMPANY_NAME}} — Email Triage Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "output": "fields",
+        "fields": [
+          "body",
+          "subject",
+          "from",
+          "receivedDateTime",
+          "toRecipients",
+          "conversationId",
+          "isRead",
+          "ccRecipients"
+        ],
+        "filters": {
+          "readStatus": "unread"
+        },
+        "options": {}
+      },
+      "id": "f75a50d5-52db-4d84-8b0f-ba686dd91b74",
+      "name": "New Email Received",
+      "type": "n8n-nodes-base.microsoftOutlookTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1024,
+        320
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "{{N8N_CRED_OUTLOOK_OAUTH_ID}}",
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Analyze this email for {{COMPANY_NAME}}. {{OWNER_TITLE}} is {{OWNER_NAME}}. Internal team: {{TEAM_MEMBER_1}} (Engineer), {{TEAM_MEMBER_2}} (Owner), {{TEAM_MEMBER_3}} (West Coast Sales), {{TEAM_MEMBER_4}}, {{TEAM_MEMBER_5}} (Director of Business Development). Key vendors: {{KEY_VENDOR_1}} ({{VENDOR_CONTACT_1}}, {{VENDOR_CONTACT_2}}, {{VENDOR_CONTACT_3}}), {{VENDOR_CONTACT_4}} (rep).\n\nFrom: {{ $json.from.emailAddress.address }} ({{ $json.from.emailAddress.name }})\nTo: {{ $json.toRecipients[0].emailAddress.address }}\nReceived: {{ $json.receivedDateTime }}\nSubject: {{ $json.subject }}\nBody: {{ $json.body.content }}\n\nReturn a single valid JSON object only — no markdown, no preamble, no extra text.",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are an AI email assistant operating on behalf of {{OWNER_NAME}}, {{OWNER_TITLE}} of {{COMPANY_NAME}}. You are a triage-and-draft system. You never send emails automatically. You never delete emails. You surface every draft to {{OWNER_FIRST_NAME}} for approval before anything goes out.\n\nVOICE — Draft all replies in {{OWNER_FIRST_NAME}}'s exact voice:\n- Direct, brief, plain. No corporate polish. No filler. No throat-clearing.\n- Default reply is 1-3 sentences. Only write more if business context is genuinely needed.\n- Greetings: Skip entirely in most replies. If needed, use first name only with a comma on its own line: Steve, — never Hi Steve, never Hello, never Dear Name.\n- Sign-offs: Use Thanks, or nothing. Never Best regards, Sincerely, Warm regards, or Thank you for your time.\n- Formatting: Plain text only. No bullet points. No numbered lists. No bold. No headers.\n- Questions: Ask directly. No softening preamble. One question per message is typical.\n- Casual abbreviations are normal: asap, btw.\n- Never open with I hope this email finds you well or any similar filler.\n- Never use Please do not hesitate to reach out or As per my previous email.\n- Never repeat back what the other person said before responding.\n- Never write formal closings.\n\nRECIPIENT STYLE:\n- Internal team ({{TEAM_MEMBER_1}}, {{TEAM_MEMBER_2}}, {{TEAM_MEMBER_3}}, {{TEAM_MEMBER_4}}, {{TEAM_MEMBER_5}}): Short, directive. No formality. Ask for top-level updates only.\n- Vendors ({{KEY_VENDOR_1}}, parts suppliers, LCD manufacturers): Direct but not aggressive. State competitive situation plainly when pushing on pricing. Ask what they can do.\n- Customers and end clients: Slightly more considered but still brief. Do not over-promise.\n- Cold outreach: Do NOT draft a warm reply. Classify only and surface to {{OWNER_FIRST_NAME}}.\n\nKEITH PHRASES — use when natural:\n- Can you see what you can do for us here?\n- Anything new on this?\n- All confidential of course.\n- That all adds up.\n- Good customer.\n- Very top level, not super detailed.\n- I do not mind paying a premium for the local PO.\n\nCLASSIFICATION CATEGORIES — assign exactly one:\n- ACTION_REQUIRED_KEITH: Requires a decision only {{OWNER_FIRST_NAME}} can make. Pricing not yet established, contract terms, personnel, commitments.\n- ACTION_REQUIRED_DRAFT: Needs a reply that can be drafted and reviewed by {{OWNER_FIRST_NAME}}. Most common category.\n- QUOTE_FOLLOW_UP: Part of a quoting or sales cycle. First follow-up 3 days after quote. Second 1 week later. After second, escalate to {{OWNER_FIRST_NAME}}.\n- INFO_OWED_TO_KEITH: Someone promised {{OWNER_FIRST_NAME}} information and has not delivered.\n- INFO_KEITH_OWES: {{OWNER_FIRST_NAME}} has been asked for something and has not responded.\n- FYI_NO_ACTION: {{OWNER_FIRST_NAME}} is CC'd or email is purely informational. Label and route only. Do not reply.\n- COLD_OUTREACH: Unsolicited email from outside party with no prior relationship. Do NOT draft warm reply.\n- LOW_VALUE_ROUTINE: Notifications, receipts, newsletters, system messages, shipping confirmations.\n- AMBIGUOUS: Intent or required action is unclear. Surface to {{OWNER_FIRST_NAME}} with explanation. Do not guess.\n- SPAM: Unsolicited mass marketing, phishing, SEO or lead-gen with no business relationship.\n\nSENSITIVITY FLAGS — set sensitivity_flag true and populate flag_reason for: pricing commitments not yet established, contract or legal language, financial transactions, personnel or HR matters, anything where {{OWNER_FIRST_NAME}} position is unclear.\n\nSTRICT RULES:\n- Never send without {{OWNER_FIRST_NAME}} approval.\n- Never delete any email.\n- Never treat CC emails as main-action items by default.\n- Never make pricing, contract, or legal commitments.\n- Never guess on ambiguous emails, surface them.\n- Never auto-reply to cold outreach.\n\nReturn only a single valid JSON object. No markdown, no preamble, no extra text."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "c5684bc5-f78d-4e96-8e2c-ea6a0b20cc03",
+      "name": "Triage Email",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -800,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-6",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {
+          "maxTokensToSample": 2048,
+          "temperature": 0.1
+        }
+      },
+      "id": "b6ee88b3-0964-49c7-b627-df6ed3deda0e",
+      "name": "Claude Sonnet1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -800,
+        544
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "{{N8N_CRED_ANTHROPIC_ID}}",
+          "name": "Anthropic account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\"category\":\"ACTION_REQUIRED_DRAFT\",\"priority\":\"HIGH\",\"is_real_person\":true,\"spam_confidence\":\"LOW\",\"requires_keith_decision\":false,\"sensitivity_flag\":false,\"flag_reason\":\"\",\"summary\":\"Vendor following up on panel pricing for the Teledyne project and asking for a purchase order.\",\"recommended_action\":\"Reply asking for updated lead time on 500 units.\",\"draft_reply\":\"Steve,\\n\\nStill working through the PO. What is the lead time if we place 500 now?\\n\\nThanks,\",\"routing_label\":\"VENDOR_ACTIVE\",\"follow_up_step\":\"\"}"
+      },
+      "id": "a25b849b-53a7-4d1e-89e7-bf07ec2bcf10",
+      "name": "Structured Output1",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -672,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.output.category }}",
+              "rightValue": "SPAM",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "id": "28667368-92af-42bf-b08b-8937c7638591",
+      "name": "Is Spam?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -448,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "toRecipients": "{{OWNER_EMAIL_USER}}@{{COMPANY_DOMAIN}}",
+        "subject": "={{ '\u26a0\ufe0f Spam Detected — Approve Reply? | ' + $('New Email Received').item.json.subject }}",
+        "message": "={{ 'Spam Email Detected\\n\\nFrom: ' + $('New Email Received').item.json.from.emailAddress.name + ' (' + $('New Email Received').item.json.from.emailAddress.address + ')\\nSubject: ' + $('New Email Received').item.json.subject + '\\n\\nCategory: ' + $('Triage Email').item.json.output.category + '\\nIs Real Person: ' + $('Triage Email').item.json.output.is_real_person + '\\nSpam Confidence: ' + $('Triage Email').item.json.output.spam_confidence + '\\nSummary: ' + $('Triage Email').item.json.output.summary + '\\n\\nProposed Reply:\\n' + $('Triage Email').item.json.output.draft_reply + '\\n\\nApprove to send this reply?' }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "Send Spam Reply",
+            "disapproveLabel": "Skip — Do Not Reply"
+          }
+        },
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "resumeAmount": 240,
+              "resumeUnit": "minutes"
+            }
+          },
+          "appendAttribution": true
+        }
+      },
+      "id": "c8e72f1f-fe9a-4e0d-84bc-f237266b0e51",
+      "name": "Request Spam Reply Approval",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -176
+      ],
+      "webhookId": "c07992c5-5723-46e8-b416-74d4f15c57fe",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "{{N8N_CRED_OUTLOOK_OAUTH_ID}}",
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "id": "aa3cfc49-f467-4fc2-95aa-618ab0300a54",
+      "name": "Was Spam Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('New Email Received').item.json.id }}"
+        },
+        "replyToSenderOnly": true,
+        "message": "This email address is monitored for business inquiries related to display and LCD technology. Your message has been flagged as unsolicited. Please remove this address from your mailing list.",
+        "additionalFields": {},
+        "options": {
+          "saveAsDraft": false
+        }
+      },
+      "id": "7fa6634a-07e8-41c9-9a44-4d591359b81f",
+      "name": "Reply to Spam",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -240
+      ],
+      "webhookId": "ce73cdc8-2b77-474f-bbcd-5675bdd2e7ab",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "{{N8N_CRED_OUTLOOK_OAUTH_ID}}",
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "messageId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('New Email Received').item.json.id }}"
+        },
+        "updateFields": {
+          "isRead": true
+        }
+      },
+      "id": "7ef3eedd-44c1-4584-8b2a-a62c0234e479",
+      "name": "Mark Spam As Read",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        896,
+        -176
+      ],
+      "webhookId": "f21e5310-2ad0-42f9-a7fa-f48193eb78fd",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "{{N8N_CRED_OUTLOOK_OAUTH_ID}}",
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "id-fyi",
+              "leftValue": "={{ ['FYI_NO_ACTION','LOW_VALUE_ROUTINE'].includes($json.output.category) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "id": "f7fe2498-a5e9-4018-99d6-e0fc29164b5f",
+      "name": "Is FYI or Low Value?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -224,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "messageId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('New Email Received').item.json.id }}"
+        },
+        "updateFields": {
+          "isRead": true
+        }
+      },
+      "id": "8704ba7d-53d0-4f25-a115-cc31d68ec0ee",
+      "name": "Mark as Read — FYI",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        896,
+        848
+      ],
+      "webhookId": "c683ee05-51f6-4239-bf9b-2bfe7e853d91",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "{{N8N_CRED_OUTLOOK_OAUTH_ID}}",
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "id-keith",
+              "leftValue": "={{ ['ACTION_REQUIRED_KEITH','AMBIGUOUS','COLD_OUTREACH','QUOTE_FOLLOW_UP','INFO_KEITH_OWES','INFO_OWED_TO_KEITH'].includes($json.output.category) || $json.output.requires_keith_decision === true || $json.output.sensitivity_flag === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "id": "182c3c43-34b7-48af-a2b7-8fff6ca44037",
+      "name": "Needs {{OWNER_FIRST_NAME}} Review?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "toRecipients": "{{OWNER_EMAIL_USER}}@{{COMPANY_DOMAIN}}",
+        "subject": "={{ '\ud83d\udccb Review Required | ' + $('New Email Received').item.json.subject }}",
+        "message": "={{ 'Email Triage — {{OWNER_FIRST_NAME}} Review Required\\n\\nFrom: ' + $('New Email Received').item.json.from.emailAddress.name + ' (' + $('New Email Received').item.json.from.emailAddress.address + ')\\nReceived: ' + $('New Email Received').item.json.receivedDateTime + '\\nSubject: ' + $('New Email Received').item.json.subject + '\\n\\nCLASSIFICATION: ' + $('Triage Email').item.json.output.category + '\\nPRIORITY: ' + $('Triage Email').item.json.output.priority + '\\nROUTING: ' + $('Triage Email').item.json.output.routing_label + ($('Triage Email').item.json.output.sensitivity_flag ? '\\n\\n\u26a0\ufe0f SENSITIVITY FLAG: ' + $('Triage Email').item.json.output.flag_reason : '') + '\\n\\nSUMMARY:\\n' + $('Triage Email').item.json.output.summary + '\\n\\nRECOMMENDED ACTION:\\n' + $('Triage Email').item.json.output.recommended_action + '\\n\\nDRAFT REPLY:\\n' + ($('Triage Email').item.json.output.draft_reply || 'No draft — {{OWNER_FIRST_NAME}} decision required.') + '\\n\\nApprove to send this reply, or decline to handle it yourself.' }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "Send This Reply",
+            "disapproveLabel": "Do Not Send — I Will Handle It"
+          }
+        },
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "resumeAmount": 480,
+              "resumeUnit": "minutes"
+            }
+          },
+          "appendAttribution": true
+        }
+      },
+      "id": "7b2f737d-f427-4c99-b4a5-7d8a818bb1bc",
+      "name": "Send {{OWNER_FIRST_NAME}} Review Request",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        224,
+        176
+      ],
+      "webhookId": "keith-review-webhook-001",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "{{N8N_CRED_OUTLOOK_OAUTH_ID}}",
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-keith-approved",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "id": "7196b979-2429-4bf1-a975-32f7b16e4eff",
+      "name": "{{OWNER_FIRST_NAME}} Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('New Email Received').item.json.id }}"
+        },
+        "replyToSenderOnly": true,
+        "message": "={{ $('Triage Email').item.json.output.draft_reply }}",
+        "additionalFields": {},
+        "options": {
+          "saveAsDraft": false
+        }
+      },
+      "id": "c39e0182-2ca9-42fb-b528-63bf3ef26dc1",
+      "name": "Send Approved Reply",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        672,
+        80
+      ],
+      "webhookId": "a199adff-3dc5-4777-ba80-489f3c5fcae6",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "{{N8N_CRED_OUTLOOK_OAUTH_ID}}",
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "messageId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('New Email Received').item.json.id }}"
+        },
+        "updateFields": {
+          "isRead": true
+        }
+      },
+      "id": "1ed96fb7-7372-482c-8a46-bef9dc08b080",
+      "name": "Mark as Read — Approved",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        896,
+        80
+      ],
+      "webhookId": "5dfc7559-5245-40a7-b93f-bb4b4f6d68a3",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "{{N8N_CRED_OUTLOOK_OAUTH_ID}}",
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "messageId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('New Email Received').item.json.id }}"
+        },
+        "updateFields": {
+          "isRead": true
+        }
+      },
+      "id": "ff039a61-de6a-44a4-b965-976876f880e7",
+      "name": "Mark as Read — Not Approved",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        896,
+        272
+      ],
+      "webhookId": "de8b755c-31eb-4e90-b444-b6505194f877",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "{{N8N_CRED_OUTLOOK_OAUTH_ID}}",
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "toRecipients": "{{OWNER_EMAIL_USER}}@{{COMPANY_DOMAIN}}",
+        "subject": "={{ '\u2709\ufe0f Draft Ready | ' + $('New Email Received').item.json.subject }}",
+        "message": "={{ 'Draft Reply — Ready for Your Approval\\n\\nFrom: ' + $('New Email Received').item.json.from.emailAddress.name + ' (' + $('New Email Received').item.json.from.emailAddress.address + ')\\nReceived: ' + $('New Email Received').item.json.receivedDateTime + '\\nSubject: ' + $('New Email Received').item.json.subject + '\\n\\nCLASSIFICATION: ' + $('Triage Email').item.json.output.category + '\\nPRIORITY: ' + $('Triage Email').item.json.output.priority + '\\nROUTING: ' + $('Triage Email').item.json.output.routing_label + '\\n\\nSUMMARY:\\n' + $('Triage Email').item.json.output.summary + '\\n\\nRECOMMENDED ACTION:\\n' + $('Triage Email').item.json.output.recommended_action + '\\n\\nDRAFT REPLY:\\n' + $('Triage Email').item.json.output.draft_reply + '\\n\\nApprove to send, or decline to handle it yourself.' }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "Send This Reply",
+            "disapproveLabel": "Do Not Send — I Will Handle It"
+          }
+        },
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "resumeAmount": 480,
+              "resumeUnit": "minutes"
+            }
+          },
+          "appendAttribution": true
+        }
+      },
+      "id": "a507f93f-cfe9-4966-bc6f-6728874916bb",
+      "name": "Send Draft for Review",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        224,
+        560
+      ],
+      "webhookId": "draft-review-webhook-001",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "{{N8N_CRED_OUTLOOK_OAUTH_ID}}",
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-draft-approved",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "id": "ad3fb02d-2066-4e9f-86ee-51eee975f28e",
+      "name": "Draft Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('New Email Received').item.json.id }}"
+        },
+        "replyToSenderOnly": true,
+        "message": "={{ $('Triage Email').item.json.output.draft_reply }}",
+        "additionalFields": {},
+        "options": {
+          "saveAsDraft": false
+        }
+      },
+      "id": "a454c4b2-14ca-4139-84fc-ce27539ea90a",
+      "name": "Send Approved Draft",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        672,
+        464
+      ],
+      "webhookId": "198da057-5891-4508-a4d6-2370fa205bab",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "{{N8N_CRED_OUTLOOK_OAUTH_ID}}",
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "messageId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('New Email Received').item.json.id }}"
+        },
+        "updateFields": {
+          "isRead": true
+        }
+      },
+      "id": "0132465a-aff5-4453-b1fa-9d29c44c4c1e",
+      "name": "Mark as Read — Draft Sent",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        896,
+        464
+      ],
+      "webhookId": "896dbf52-c5a9-42f7-8f3e-0d4397480f69",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "{{N8N_CRED_OUTLOOK_OAUTH_ID}}",
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "messageId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('New Email Received').item.json.id }}"
+        },
+        "updateFields": {
+          "isRead": true
+        }
+      },
+      "id": "b0e7bb80-7377-4439-b430-065f7762e508",
+      "name": "Mark as Read — Draft Declined",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        896,
+        656
+      ],
+      "webhookId": "38d3835f-e2d9-4a3f-95b1-e2206702720c",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "{{N8N_CRED_OUTLOOK_OAUTH_ID}}",
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "email_id",
+              "value": "={{ $('New Email Received').item.json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "from_email",
+              "value": "={{ $('New Email Received').item.json.from.emailAddress.address }}",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "from_name",
+              "value": "={{ $('New Email Received').item.json.from.emailAddress.name }}",
+              "type": "string"
+            },
+            {
+              "id": "id-5",
+              "name": "subject",
+              "value": "={{ $('New Email Received').item.json.subject }}",
+              "type": "string"
+            },
+            {
+              "id": "id-6",
+              "name": "received_datetime",
+              "value": "={{ $('New Email Received').item.json.receivedDateTime }}",
+              "type": "string"
+            },
+            {
+              "id": "id-7",
+              "name": "category",
+              "value": "={{ $('Triage Email').item.json.output.category }}",
+              "type": "string"
+            },
+            {
+              "id": "id-8",
+              "name": "priority",
+              "value": "={{ $('Triage Email').item.json.output.priority }}",
+              "type": "string"
+            },
+            {
+              "id": "id-9",
+              "name": "spam_confidence",
+              "value": "={{ $('Triage Email').item.json.output.spam_confidence }}",
+              "type": "string"
+            },
+            {
+              "id": "id-10",
+              "name": "is_real_person",
+              "value": "={{ $('Triage Email').item.json.output.is_real_person }}",
+              "type": "boolean"
+            },
+            {
+              "id": "id-11",
+              "name": "requires_keith_decision",
+              "value": "={{ $('Triage Email').item.json.output.requires_keith_decision }}",
+              "type": "boolean"
+            },
+            {
+              "id": "id-12",
+              "name": "sensitivity_flag",
+              "value": "={{ $('Triage Email').item.json.output.sensitivity_flag }}",
+              "type": "boolean"
+            },
+            {
+              "id": "id-13",
+              "name": "flag_reason",
+              "value": "={{ $('Triage Email').item.json.output.flag_reason }}",
+              "type": "string"
+            },
+            {
+              "id": "id-14",
+              "name": "summary",
+              "value": "={{ $('Triage Email').item.json.output.summary }}",
+              "type": "string"
+            },
+            {
+              "id": "id-15",
+              "name": "recommended_action",
+              "value": "={{ $('Triage Email').item.json.output.recommended_action }}",
+              "type": "string"
+            },
+            {
+              "id": "id-16",
+              "name": "draft_reply",
+              "value": "={{ $('Triage Email').item.json.output.draft_reply }}",
+              "type": "string"
+            },
+            {
+              "id": "id-17",
+              "name": "routing_label",
+              "value": "={{ $('Triage Email').item.json.output.routing_label }}",
+              "type": "string"
+            },
+            {
+              "id": "id-18",
+              "name": "outcome",
+              "value": "={{ $runIndex === 0 ? 'spam_replied' : $runIndex === 1 ? 'spam_marked_read' : $runIndex === 2 ? 'fyi_marked_read' : $runIndex === 3 ? 'keith_approved_sent' : $runIndex === 4 ? 'keith_declined' : $runIndex === 5 ? 'draft_approved_sent' : $runIndex === 6 ? 'draft_declined' : 'unknown' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e169a256-5b31-46df-af5a-2d91b86ba819",
+      "name": "Prepare Tracking Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "append",
+        "workbook": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": ""
+        },
+        "worksheet": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": ""
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": ""
+        },
+        "dataMode": "define",
+        "fieldsUi": {
+          "values": [
+            {
+              "column": "timestamp",
+              "fieldValue": "={{ $json.timestamp }}"
+            },
+            {
+              "column": "email_id",
+              "fieldValue": "={{ $json.email_id }}"
+            },
+            {
+              "column": "from_email",
+              "fieldValue": "={{ $json.from_email }}"
+            },
+            {
+              "column": "from_name",
+              "fieldValue": "={{ $json.from_name }}"
+            },
+            {
+              "column": "subject",
+              "fieldValue": "={{ $json.subject }}"
+            },
+            {
+              "column": "received_datetime",
+              "fieldValue": "={{ $json.received_datetime }}"
+            },
+            {
+              "column": "category",
+              "fieldValue": "={{ $json.category }}"
+            },
+            {
+              "column": "priority",
+              "fieldValue": "={{ $json.priority }}"
+            },
+            {
+              "column": "spam_confidence",
+              "fieldValue": "={{ $json.spam_confidence }}"
+            },
+            {
+              "column": "is_real_person",
+              "fieldValue": "={{ $json.is_real_person }}"
+            },
+            {
+              "column": "requires_keith_decision",
+              "fieldValue": "={{ $json.requires_keith_decision }}"
+            },
+            {
+              "column": "sensitivity_flag",
+              "fieldValue": "={{ $json.sensitivity_flag }}"
+            },
+            {
+              "column": "flag_reason",
+              "fieldValue": "={{ $json.flag_reason }}"
+            },
+            {
+              "column": "summary",
+              "fieldValue": "={{ $json.summary }}"
+            },
+            {
+              "column": "recommended_action",
+              "fieldValue": "={{ $json.recommended_action }}"
+            },
+            {
+              "column": "draft_reply",
+              "fieldValue": "={{ $json.draft_reply }}"
+            },
+            {
+              "column": "routing_label",
+              "fieldValue": "={{ $json.routing_label }}"
+            },
+            {
+              "column": "outcome",
+              "fieldValue": "={{ $json.outcome }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "05af9a94-cc5e-449f-94d5-a9a1d6510a51",
+      "name": "Log to Excel",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2.2,
+      "position": [
+        1344,
+        368
+      ],
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "RjSU4zJjPWd5ZW2f",
+          "name": "Microsoft Excel OAuth2 API"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "New Email Received": {
+      "main": [
+        [
+          {
+            "node": "Triage Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Sonnet1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Triage Email",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Triage Email",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Triage Email": {
+      "main": [
+        [
+          {
+            "node": "Is Spam?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Spam?": {
+      "main": [
+        [
+          {
+            "node": "Request Spam Reply Approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is FYI or Low Value?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request Spam Reply Approval": {
+      "main": [
+        [
+          {
+            "node": "Was Spam Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Was Spam Approved?": {
+      "main": [
+        [
+          {
+            "node": "Reply to Spam",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Spam As Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply to Spam": {
+      "main": [
+        [
+          {
+            "node": "Mark Spam As Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is FYI or Low Value?": {
+      "main": [
+        [
+          {
+            "node": "Mark as Read — FYI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Needs {{OWNER_FIRST_NAME}} Review?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs {{OWNER_FIRST_NAME}} Review?": {
+      "main": [
+        [
+          {
+            "node": "Send {{OWNER_FIRST_NAME}} Review Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Draft for Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send {{OWNER_FIRST_NAME}} Review Request": {
+      "main": [
+        [
+          {
+            "node": "{{OWNER_FIRST_NAME}} Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "{{OWNER_FIRST_NAME}} Approved?": {
+      "main": [
+        [
+          {
+            "node": "Send Approved Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark as Read — Not Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Approved Reply": {
+      "main": [
+        [
+          {
+            "node": "Mark as Read — Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Draft for Review": {
+      "main": [
+        [
+          {
+            "node": "Draft Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Approved?": {
+      "main": [
+        [
+          {
+            "node": "Send Approved Draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark as Read — Draft Declined",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Approved Draft": {
+      "main": [
+        [
+          {
+            "node": "Mark as Read — Draft Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Spam As Read": {
+      "main": [
+        [
+          {
+            "node": "Prepare Tracking Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Read — FYI": {
+      "main": [
+        [
+          {
+            "node": "Prepare Tracking Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Read — Approved": {
+      "main": [
+        [
+          {
+            "node": "Prepare Tracking Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Read — Not Approved": {
+      "main": [
+        [
+          {
+            "node": "Prepare Tracking Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Read — Draft Sent": {
+      "main": [
+        [
+          {
+            "node": "Prepare Tracking Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Read — Draft Declined": {
+      "main": [
+        [
+          {
+            "node": "Prepare Tracking Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Tracking Data": {
+      "main": [
+        [
+          {
+            "node": "Log to Excel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "ae932b0e-be35-444c-a033-4a48389ea7ad",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b6b92fa383763da8633fcd68b001492e26625e7b91c3fdf0b35e2b39d032127b"
+  },
+  "id": "YGpMd1WOdK7xLiUF",
+  "tags": []
+}

@@ -1,0 +1,229 @@
+﻿{
+  "name": "{{COMPANY_NAME}} ”” Email Triage Training Runner",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "manualTrigger" }]
+        }
+      },
+      "id": "trigger-001",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1200, 0],
+      "notes": "Click Test Workflow to kick off a batch. Run repeatedly with different offsets to process thousands of emails."
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 50,
+        "filters": {},
+        "options": {
+          "fields": ["subject", "from", "toRecipients", "receivedDateTime", "sentDateTime", "bodyPreview", "body", "hasAttachments", "importance", "conversationId", "id"]
+        }
+      },
+      "id": "fetch-sent-001",
+      "name": "Fetch Sent Emails",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [-960, 0],
+      "notes": "Fetches 50 sent emails per run. To process more emails, duplicate this node with offset 50, 100, 150, etc. and merge outputs before the loop."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Strip HTML, truncate body, and normalize fields for clean triage input\nconst item = $input.item.json;\n\nconst stripHtml = (html) => {\n  if (!html) return '';\n  return html\n    .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, ' ')\n    .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, ' ')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/&nbsp;/g, ' ')\n    .replace(/&amp;/g, '&')\n    .replace(/&lt;/g, '<')\n    .replace(/&gt;/g, '>')\n    .replace(/&quot;/g, '\"')\n    .replace(/\\s+/g, ' ')\n    .trim();\n};\n\nconst bodyRaw = item.body?.content || item.bodyPreview || '';\nconst bodyClean = stripHtml(bodyRaw);\n\nreturn {\n  json: {\n    email_id: item.id || '',\n    received_date: item.sentDateTime || item.receivedDateTime || '',\n    from_address: item.from?.emailAddress?.address || '',\n    from_name: item.from?.emailAddress?.name || '',\n    to_address: item.toRecipients?.[0]?.emailAddress?.address || '',\n    subject: item.subject || '',\n    body_preview: bodyClean.substring(0, 500),\n    body_full: bodyClean.substring(0, 3000),\n    has_attachments: item.hasAttachments ? 'yes' : 'no',\n    importance: item.importance || 'normal'\n  }\n};"
+      },
+      "id": "normalize-001",
+      "name": "Normalize Email Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-720, 0]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "batch-loop-001",
+      "name": "Process One at a Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [-480, 0],
+      "notes": "Processes emails one at a time to stay within Claude API rate limits."
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this email from {{OWNER_NAME}}'s sent folder for {{COMPANY_NAME}}.\n\nEmail ID: {{ $json.email_id }}\nDate Sent: {{ $json.received_date }}\nFrom: {{ $json.from_address }} ({{ $json.from_name }})\nTo: {{ $json.to_address }}\nSubject: {{ $json.subject }}\nHas Attachments: {{ $json.has_attachments }}\nImportance: {{ $json.importance }}\n\nEmail Body:\n{{ $json.body_full }}\n\nThis is a TRAINING RUN. Analyze this email exactly as you would in production. Classify it, assess it, and draft a reply in {{OWNER_FIRST_NAME}}'s voice as if you received this email fresh today and needed to respond.\n\nReturn a single valid JSON object only ”” no markdown, no preamble, no extra text.",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "type": "SystemMessagePromptTemplate",
+              "message": "You are an AI email assistant operating on behalf of {{OWNER_NAME}}, {{OWNER_TITLE}} of {{COMPANY_NAME}}. You are a triage-and-draft system. You never send emails automatically. You never delete emails. You surface every draft to {{OWNER_FIRST_NAME}} for approval before anything goes out.\n\nVOICE ”” Draft all replies in {{OWNER_FIRST_NAME}}'s exact voice:\n- Direct, brief, plain. No corporate polish. No filler. No throat-clearing.\n- Default reply is 1-3 sentences. Only write more if business context is genuinely needed.\n- Greetings: Skip entirely in most replies. If needed, use first name only with a comma on its own line: Steve, ”” never Hi Steve, never Hello, never Dear Name.\n- Sign-offs: Use Thanks, or nothing. Never Best regards, Sincerely, Warm regards, or Thank you for your time.\n- Formatting: Plain text only. No bullet points. No numbered lists. No bold. No headers.\n- Questions: Ask directly. No softening preamble. One question per message is typical.\n- Casual abbreviations are normal: asap, btw.\n- Never open with I hope this email finds you well or any similar filler.\n- Never use Please do not hesitate to reach out or As per my previous email.\n- Never repeat back what the other person said before responding.\n- Never write formal closings.\n\nRECIPIENT STYLE:\n- Internal team ({{TEAM_MEMBER_1}}, {{TEAM_MEMBER_2}}, {{TEAM_MEMBER_3}}, {{TEAM_MEMBER_4}}, {{TEAM_MEMBER_5}}): Short, directive. No formality. Ask for top-level updates only.\n- Vendors ({{KEY_VENDOR_1}}, parts suppliers, LCD manufacturers): Direct but not aggressive. State competitive situation plainly when pushing on pricing. Ask what they can do.\n- Customers and end clients: Slightly more considered but still brief. Do not over-promise.\n- Cold outreach: Do NOT draft a warm reply. Classify only and surface to {{OWNER_FIRST_NAME}}.\n\nKEITH PHRASES ”” use when natural:\n- Can you see what you can do for us here?\n- Anything new on this?\n- All confidential of course.\n- That all adds up.\n- Good customer.\n- Very top level, not super detailed.\n- I do not mind paying a premium for the local PO.\n\nCLASSIFICATION CATEGORIES ”” assign exactly one:\n- ACTION_REQUIRED_KEITH: Requires a decision only {{OWNER_FIRST_NAME}} can make. Pricing not yet established, contract terms, personnel, commitments.\n- ACTION_REQUIRED_DRAFT: Needs a reply that can be drafted and reviewed by {{OWNER_FIRST_NAME}}. Most common category.\n- QUOTE_FOLLOW_UP: Part of a quoting or sales cycle. First follow-up 3 days after quote. Second 1 week later. After second, escalate to {{OWNER_FIRST_NAME}}.\n- INFO_OWED_TO_KEITH: Someone promised {{OWNER_FIRST_NAME}} information and has not delivered.\n- INFO_KEITH_OWES: {{OWNER_FIRST_NAME}} has been asked for something and has not responded.\n- FYI_NO_ACTION: {{OWNER_FIRST_NAME}} is CC'd or email is purely informational. Label and route only. Do not reply.\n- COLD_OUTREACH: Unsolicited email from outside party with no prior relationship. Do NOT draft warm reply.\n- LOW_VALUE_ROUTINE: Notifications, receipts, newsletters, system messages, shipping confirmations.\n- AMBIGUOUS: Intent or required action is unclear. Surface to {{OWNER_FIRST_NAME}} with explanation. Do not guess.\n- SPAM: Unsolicited mass marketing, phishing, SEO or lead-gen with no business relationship.\n\nSENSITIVITY FLAGS ”” set sensitivity_flag true and populate flag_reason for: pricing commitments not yet established, contract or legal language, financial transactions, personnel or HR matters, anything where {{OWNER_FIRST_NAME}} position is unclear.\n\nADDITIONAL TRAINING FIELDS ”” also assess and return:\n- confidence_score: Your confidence in the classification from 0.0 to 1.0\n- relationship_type: INTERNAL, VENDOR, CUSTOMER, PROSPECT, PERSONAL, or UNKNOWN\n- topic_tags: Comma-separated list of relevant business topics, e.g. pricing, lead_time, quote, project_status, product_spec, scheduling, complaint, cold_outreach, personal\n- estimated_urgency: HIGH, MEDIUM, or LOW\n- reply_needed: YES, NO, or MAYBE\n- draft_quality_notes: Notes on why the draft is written the way it is, or what made this email tricky to classify. For training analysis only.\n\nSTRICT RULES:\n- Never send without {{OWNER_FIRST_NAME}} approval.\n- Never delete any email.\n- Never treat CC emails as main-action items by default.\n- Never make pricing, contract, or legal commitments.\n- Never guess on ambiguous emails, surface them.\n- Never auto-reply to cold outreach.\n\nReturn only a single valid JSON object. No markdown, no preamble, no extra text."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "triage-001",
+      "name": "Triage Email (Training)",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [-240, 0]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-6",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {
+          "maxTokensToSample": 2048,
+          "temperature": 0.1
+        }
+      },
+      "id": "claude-001",
+      "name": "Claude Sonnet1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [-240, 200]
+    },
+    {
+      "parameters": {
+        "schemaType": "fromJson",
+        "jsonSchemaExample": "{\"category\":\"ACTION_REQUIRED_DRAFT\",\"priority\":\"HIGH\",\"is_real_person\":true,\"spam_confidence\":\"LOW\",\"requires_keith_decision\":false,\"sensitivity_flag\":false,\"flag_reason\":\"\",\"summary\":\"Vendor following up on panel pricing for the Teledyne project.\",\"recommended_action\":\"Reply asking for updated lead time on 500 units.\",\"draft_reply\":\"Steve,\\n\\nStill working through the PO. What is the lead time if we place 500 now?\\n\\nThanks,\",\"routing_label\":\"VENDOR_ACTIVE\",\"follow_up_step\":\"\",\"confidence_score\":0.94,\"relationship_type\":\"VENDOR\",\"topic_tags\":\"pricing,lead_time,quote\",\"estimated_urgency\":\"MEDIUM\",\"reply_needed\":\"YES\",\"draft_quality_notes\":\"Established vendor relationship. Single direct question format. Steve, greeting appropriate.\"}"
+      },
+      "id": "parser-001",
+      "name": "Structured Output1",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [-80, 200]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Merge original email fields with triage output into one flat Excel row\nconst t = $json.output || {};\nconst e = $('Normalize Email Fields').item.json;\n\nconst safe = (v) => {\n  if (v === null || v === undefined) return '';\n  if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';\n  if (typeof v === 'number') return String(v);\n  return String(v).substring(0, 32767); // Excel cell limit\n};\n\nreturn {\n  json: {\n    email_id:                      safe(e.email_id),\n    received_date:                 safe(e.received_date),\n    from_address:                  safe(e.from_address),\n    from_name:                     safe(e.from_name),\n    to_address:                    safe(e.to_address),\n    subject:                       safe(e.subject),\n    body_preview:                  safe(e.body_preview),\n    has_attachments:               safe(e.has_attachments),\n    category:                      safe(t.category),\n    priority:                      safe(t.priority),\n    routing_label:                 safe(t.routing_label),\n    is_real_person:                safe(t.is_real_person),\n    spam_confidence:               safe(t.spam_confidence),\n    requires_keith_decision:       safe(t.requires_keith_decision),\n    sensitivity_flag:              safe(t.sensitivity_flag),\n    flag_reason:                   safe(t.flag_reason),\n    summary:                       safe(t.summary),\n    recommended_action:            safe(t.recommended_action),\n    draft_reply:                   safe(t.draft_reply),\n    follow_up_step:                safe(t.follow_up_step),\n    confidence_score:              safe(t.confidence_score),\n    relationship_type:             safe(t.relationship_type),\n    topic_tags:                    safe(t.topic_tags),\n    estimated_urgency:             safe(t.estimated_urgency),\n    reply_needed:                  safe(t.reply_needed),\n    draft_quality_notes:           safe(t.draft_quality_notes),\n    keith_review_correct_category: '',\n    keith_review_draft_quality:    '',\n    keith_review_notes:            '',\n    reviewed:                      'NO'\n  }\n};"
+      },
+      "id": "build-row-001",
+      "name": "Build Excel Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "append",
+        "workbook": {
+          "__rl": true,
+          "mode": "list",
+          "value": "YOUR_WORKBOOK_ID_HERE",
+          "cachedResultName": "DisplayLogic_EmailTriage_Training.xlsx"
+        },
+        "worksheet": {
+          "__rl": true,
+          "mode": "list",
+          "value": "YOUR_WORKSHEET_ID_HERE",
+          "cachedResultName": "Training Data"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "YOUR_TABLE_ID_HERE",
+          "cachedResultName": "EmailTrainingData"
+        },
+        "dataMode": "define",
+        "fieldsUi": {
+          "values": [
+            { "column": "email_id",                      "fieldValue": "={{ $json.email_id }}" },
+            { "column": "received_date",                 "fieldValue": "={{ $json.received_date }}" },
+            { "column": "from_address",                  "fieldValue": "={{ $json.from_address }}" },
+            { "column": "from_name",                     "fieldValue": "={{ $json.from_name }}" },
+            { "column": "to_address",                    "fieldValue": "={{ $json.to_address }}" },
+            { "column": "subject",                       "fieldValue": "={{ $json.subject }}" },
+            { "column": "body_preview",                  "fieldValue": "={{ $json.body_preview }}" },
+            { "column": "has_attachments",               "fieldValue": "={{ $json.has_attachments }}" },
+            { "column": "category",                      "fieldValue": "={{ $json.category }}" },
+            { "column": "priority",                      "fieldValue": "={{ $json.priority }}" },
+            { "column": "routing_label",                 "fieldValue": "={{ $json.routing_label }}" },
+            { "column": "is_real_person",                "fieldValue": "={{ $json.is_real_person }}" },
+            { "column": "spam_confidence",               "fieldValue": "={{ $json.spam_confidence }}" },
+            { "column": "requires_keith_decision",       "fieldValue": "={{ $json.requires_keith_decision }}" },
+            { "column": "sensitivity_flag",              "fieldValue": "={{ $json.sensitivity_flag }}" },
+            { "column": "flag_reason",                   "fieldValue": "={{ $json.flag_reason }}" },
+            { "column": "summary",                       "fieldValue": "={{ $json.summary }}" },
+            { "column": "recommended_action",            "fieldValue": "={{ $json.recommended_action }}" },
+            { "column": "draft_reply",                   "fieldValue": "={{ $json.draft_reply }}" },
+            { "column": "follow_up_step",                "fieldValue": "={{ $json.follow_up_step }}" },
+            { "column": "confidence_score",              "fieldValue": "={{ $json.confidence_score }}" },
+            { "column": "relationship_type",             "fieldValue": "={{ $json.relationship_type }}" },
+            { "column": "topic_tags",                    "fieldValue": "={{ $json.topic_tags }}" },
+            { "column": "estimated_urgency",             "fieldValue": "={{ $json.estimated_urgency }}" },
+            { "column": "reply_needed",                  "fieldValue": "={{ $json.reply_needed }}" },
+            { "column": "draft_quality_notes",           "fieldValue": "={{ $json.draft_quality_notes }}" },
+            { "column": "keith_review_correct_category", "fieldValue": "={{ $json.keith_review_correct_category }}" },
+            { "column": "keith_review_draft_quality",    "fieldValue": "={{ $json.keith_review_draft_quality }}" },
+            { "column": "keith_review_notes",            "fieldValue": "={{ $json.keith_review_notes }}" },
+            { "column": "reviewed",                      "fieldValue": "={{ $json.reviewed }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "excel-write-001",
+      "name": "Write to Excel",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2.2,
+      "position": [440, 0],
+      "notes": "Upload DisplayLogic_EmailTriage_Training.xlsx to OneDrive first. Then open this node and use the dropdown to select the workbook, worksheet (Training Data), and table (EmailTrainingData)."
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Fetch Sent Emails", "type": "main", "index": 0 }]]
+    },
+    "Fetch Sent Emails": {
+      "main": [[{ "node": "Normalize Email Fields", "type": "main", "index": 0 }]]
+    },
+    "Normalize Email Fields": {
+      "main": [[{ "node": "Process One at a Time", "type": "main", "index": 0 }]]
+    },
+    "Process One at a Time": {
+      "main": [
+        [{ "node": "Triage Email (Training)", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Claude Sonnet1": {
+      "ai_languageModel": [[{ "node": "Triage Email (Training)", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Structured Output1": {
+      "ai_outputParser": [[{ "node": "Triage Email (Training)", "type": "ai_outputParser", "index": 0 }]]
+    },
+    "Triage Email (Training)": {
+      "main": [[{ "node": "Build Excel Row", "type": "main", "index": 0 }]]
+    },
+    "Build Excel Row": {
+      "main": [[{ "node": "Write to Excel", "type": "main", "index": 0 }]]
+    },
+    "Write to Excel": {
+      "main": [[{ "node": "Process One at a Time", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
+

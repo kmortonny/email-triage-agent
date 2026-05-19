@@ -1,0 +1,30 @@
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+
+# Local config - NEVER commit
+.env
+.env.local
+config.local.json
+persona.local.json
+*.local.*
+
+# Apps Script local artifacts
+.clasp.json
+.clasprc.json
+apps-script/.clasp.json
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+
+# Installer scratch
+installer/.cache/
+installer/scratch/
+
+# OS / editor
+.vscode/
+.idea/
+*.swp
+*.swo
