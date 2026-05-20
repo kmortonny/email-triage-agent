@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+REPO_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 APPS_SCRIPT_DIR="$REPO_ROOT/apps-script"
 SUPABASE_DIR="$REPO_ROOT/supabase"
 N8N_DIR="$REPO_ROOT/n8n-workflows"

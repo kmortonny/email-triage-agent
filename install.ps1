@@ -27,7 +27,7 @@ $ProgressPreference    = 'SilentlyContinue'
 # ============================================================================
 # Editable variables
 # ============================================================================
-$RepoRoot      = Split-Path -Parent $PSScriptRoot
+$RepoRoot      = $PSScriptRoot
 $AppsScriptDir = Join-Path $RepoRoot 'apps-script'
 $SupabaseDir   = Join-Path $RepoRoot 'supabase'
 $N8nDir        = Join-Path $RepoRoot 'n8n-workflows'

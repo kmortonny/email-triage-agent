@@ -1,0 +1,80 @@
+================================================================
+  EMAIL TRIAGE AGENT - QUICK START
+================================================================
+
+You received a zip file. Three steps from here to a working
+AI email assistant on your accounts:
+
+  1. EXTRACT this zip somewhere convenient (Desktop is fine).
+
+  2. DOUBLE-CLICK  install.bat
+
+     (If Windows SmartScreen warns: click "More info" then
+      "Run anyway".  The file is plain text - you can open
+      it in Notepad to see what it does.)
+
+  3. FOLLOW THE PROMPTS.
+
+     The installer will ask for:
+       - Your name, title, company info
+       - Your email provider (Gmail or Outlook)
+       - API keys / accounts for: Anthropic, Supabase, n8n Cloud
+         (free tier on all of them; the installer opens signup
+          pages if you don't have accounts yet)
+
+     If you don't have those accounts yet, the installer pauses
+     and opens the signup page for you.  Come back to the
+     installer window when you're done and press Enter.
+
+     Total time: 15-20 minutes if you're starting from zero,
+                  5 minutes if you already have the accounts.
+
+  4. WHEN IT FINISHES it prints a web URL.  That's your
+     dashboard.  Bookmark it.
+
+----------------------------------------------------------------
+
+REQUIREMENTS:
+
+  - Windows 10 or 11  (Mac/Linux: run install.sh instead)
+  - Node.js 18 or newer       https://nodejs.org
+  - Git for Windows           https://git-scm.com (optional but useful)
+
+  The installer checks for these and points you to the download
+  pages if anything is missing.
+
+----------------------------------------------------------------
+
+DOCUMENTATION:
+
+  README.md                     What it is, top-level overview
+  INSTALL.md                    Detailed install walkthrough
+  docs/ARCHITECTURE.md          How the pieces fit together
+  docs/CONFIGURATION.md         All config keys + where to set them
+  docs/TROUBLESHOOTING.md       Common errors + fixes
+
+----------------------------------------------------------------
+
+WHAT THIS THING DOES:
+
+  - Watches your Gmail or Outlook inbox.
+  - Uses Claude (Anthropic) to classify each new email
+    (Action Required / New Opportunity / Vendor RFQ / Spam / etc.)
+  - Drafts a reply in YOUR voice -- learned from your own
+    Sent folder, not generic AI tone.
+  - Auto-nudges customers and vendors who owe you a response.
+  - Strips sender identity when you forward an email.
+  - Optional CRM module for pipeline tracking.
+
+All data stays on YOUR accounts.  Nothing leaves to a third party
+beyond the Claude API calls (which is unavoidable - that's the AI).
+Source code is open and auditable in this folder.
+
+----------------------------------------------------------------
+
+QUESTIONS / PROBLEMS:
+
+  See docs/TROUBLESHOOTING.md for the common ones.
+  Repo: https://github.com/kmortonny/email-triage-agent
+
+================================================================

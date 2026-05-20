@@ -19,15 +19,15 @@ Connects to Gmail or Outlook, learns your voice from your Sent folder, and runs 
 Windows:
 ```powershell
 git clone https://github.com/kmortonny/email-triage-agent.git
-cd email-triage-agent\installer
+cd email-triage-agent
 .\install.bat
 ```
 
 Mac / Linux:
 ```bash
 git clone https://github.com/kmortonny/email-triage-agent.git
-cd email-triage-agent/installer
-./install.sh
+cd email-triage-agent
+chmod +x install.sh && ./install.sh
 ```
 
 The installer walks you through everything: account setup (Google or Microsoft, Supabase, n8n, Anthropic), credential capture, schema deploy, voice learning. Roughly 8-10 minutes start to finish.

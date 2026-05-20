@@ -20,17 +20,17 @@ You also need on your machine:
 
 ```powershell
 git clone https://github.com/kmortonny/email-triage-agent.git
-cd email-triage-agent\installer
+cd email-triage-agent
 .\install.bat
 ```
 
-Or double-click `install.bat` from File Explorer.
+Or — if you received a zip — extract it and double-click `install.bat` at the top of the extracted folder.
 
 ## Install — macOS / Linux
 
 ```bash
 git clone https://github.com/kmortonny/email-triage-agent.git
-cd email-triage-agent/installer
+cd email-triage-agent
 chmod +x install.sh
 ./install.sh
 ```
@@ -71,7 +71,7 @@ For specific errors, see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 ```powershell
 cd email-triage-agent
 git pull
-.\installer\install.bat
+.\install.bat
 ```
 
 The installer detects existing state, only re-applies changes.
